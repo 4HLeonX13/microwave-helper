@@ -84,7 +84,7 @@ class MicrowaveHandler(SimpleHTTPRequestHandler):
         allowed_modes = {
             "recipe": "說明書料理",
             "manual": "依包裝手動微波",
-            "ai": "AI 辨識說明書料理",
+            "ai": "AI 建議模式",
         }
         if not isinstance(body, dict) or body.get("mode") not in allowed_modes:
             self.send_json(400, {"message": "歷程模式不正確。"})

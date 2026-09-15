@@ -174,19 +174,20 @@ class ApiTests(unittest.TestCase):
         self.assertNotIn("api_key", data)
         self.assertNotIn("very-secret", json.dumps(data))
 
-    def test_ai_endpoint_returns_only_locally_validated_recipe(self):
+    def test_ai_endpoint_returns_model_suggestion(self):
         guide = {
-            "matched": True,
-            "message": "AI 辨識為：冷凍薯條／300g。已找到說明書行程。",
-            "steps": ["按面板「氣炸食譜」。"],
-            "history": {"mode": "ai", "food": "冷凍薯條", "detail": "300g",
-                        "program": "氣炸食譜 AF01", "settings": "22:00"},
+            "suggestion": True,
+            "message": "AI 建議（模型預測）：熱狗麵包。",
+            "steps": ["按面板「微波火力」。"],
+            "history": {"mode": "ai", "food": "熱狗麵包", "detail": "冷藏／1 個",
+                        "program": "AI 建議：手動微波 P70", "settings": "630W／00:45"},
         }
         with patch("server.get_ai_guide", return_value=guide) as mocked:
-            status, data = self.post("/api/ai-guide", {"query": "300g 冷凍薯條"})
+            status, data = self.post("/api/ai-guide", {"query": "一個冷藏熱狗麵包"})
         self.assertEqual(status, 200)
+        self.assertTrue(data["suggestion"])
         self.assertEqual(data["history"]["mode"], "ai")
-        mocked.assert_called_once_with("300g 冷凍薯條")
+        mocked.assert_called_once_with("一個冷藏熱狗麵包")
 
     def test_ai_endpoint_reports_missing_key(self):
         with patch("server.get_ai_guide", side_effect=AiConfigurationError("尚未設定 AI_API_KEY。")):
@@ -202,31 +203,49 @@ class ExternalAiClientTests(unittest.TestCase):
         "api_key": "test-key",
     }
 
-    def test_model_choice_is_checked_against_manual_catalog(self):
+    def test_model_suggestion_is_converted_to_panel_steps(self):
         captured = {}
 
         def opener(request, timeout):
             captured["url"] = request.full_url
             captured["authorization"] = request.headers["Authorization"]
             captured["body"] = json.loads(request.data)
-            return ai_response({"matched": True, "recipe_id": "AF01", "portion": "300g"})
+            return ai_response({
+                "food": "熱狗麵包",
+                "state": "冷藏",
+                "amount": "1 個（約 120g）",
+                "power": "P70",
+                "minutes": 0,
+                "seconds": 45,
+                "assumptions": [],
+                "preparation": ["移除包裝並放在可微波盤上。"],
+                "midway": "加熱 30 秒時檢查溫度。",
+                "cautions": ["完成後靜置 30 秒。"],
+                "reason": "中等功率可減少麵包變乾。",
+            })
 
         with patch("external_api.get_ai_config", return_value=self.config):
-            data = get_ai_guide("我要加熱 300g 冷凍薯條", opener=opener)
+            data = get_ai_guide("我要微波一個冷藏的熱狗麵包，約 120g", opener=opener)
         self.assertEqual(captured["url"], "https://example.test/v1/chat/completions")
         self.assertEqual(captured["authorization"], "Bearer test-key")
         self.assertEqual(captured["body"]["model"], "nemotron-omni-30b")
-        self.assertEqual(data["history"]["food"], "冷凍薯條")
+        self.assertEqual(data["history"]["food"], "熱狗麵包")
         self.assertEqual(data["history"]["mode"], "ai")
-        self.assertEqual(data["selection"]["total_time"], "22:00")
+        self.assertEqual(data["selection"]["power"], "P70")
+        self.assertEqual(data["selection"]["time"], "00:45")
+        self.assertTrue(any("微波火力" in step and "P70" in step for step in data["steps"]))
 
-    def test_model_cannot_invent_recipe_or_portion(self):
+    def test_model_cannot_return_unsupported_panel_power(self):
         def opener(_request, timeout):
-            return ai_response({"matched": True, "recipe_id": "invented", "portion": "999g"})
+            return ai_response({
+                "food": "熱狗麵包", "state": "常溫", "amount": "1 個",
+                "power": "P75", "minutes": 1, "seconds": 0,
+                "reason": "測試不支援的火力",
+            })
 
         with patch("external_api.get_ai_config", return_value=self.config):
             with self.assertRaises(ExternalAiError):
-                get_ai_guide("隨意料理", opener=opener)
+                get_ai_guide("熱狗麵包", opener=opener)
 
 
 if __name__ == "__main__":

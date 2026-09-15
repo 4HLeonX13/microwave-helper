@@ -14,7 +14,7 @@
     <select id="guide-mode">
         <option value="recipe">查詢說明書料理</option>
         <option value="manual">依包裝設定手動微波</option>
-        <option value="ai">AI 自然語言查詢（外部 API）</option>
+        <option value="ai">AI 建議模式（外部 API）</option>
     </select>
 
     <section id="recipe-fields">
@@ -102,11 +102,11 @@
     </section>
 
     <section id="ai-fields" hidden>
-        <p>輸入食物與份量，AI 會從已核對的 33 個說明書行程中尋找完全相符的項目。</p>
+        <p>描述你想加熱的食物，外部 AI 會依你提供的資訊預測一組手動微波功率與時間。</p>
         <label for="ai-query">料理描述</label>
-        <textarea id="ai-query" rows="4" maxlength="500" placeholder="例如：我要加熱 300g 冷凍薯條"></textarea>
+        <textarea id="ai-query" rows="4" maxlength="500" placeholder="例如：我要微波一個冷藏的熱狗麵包，約 120g"></textarea>
         <p id="ai-status" class="source" role="status">正在檢查外部 API 設定……</p>
-        <p>送出時，這段料理描述會傳到設定的外部 API。AI 不會自行決定功率或時間；最後的面板設定仍取自本機說明書資料。</p>
+        <p>送出時，料理描述會傳到外部 API。結果屬於 AI 預測；資料越完整，建議越能符合實際狀況。食品有包裝指示時，以包裝設定為優先。</p>
     </section>
 
     <button type="button" id="generate-button">取得操作步驟</button>
@@ -164,7 +164,7 @@
         const messages = {
             recipe: "請選擇料理與份量，再取得操作步驟。",
             manual: "請依包裝填寫設定。",
-            ai: "請描述食物名稱、狀態與份量。"
+            ai: "請描述想加熱的食物；可以附上狀態、重量或數量。"
         };
         result.textContent = messages[modeInput.value];
     }
@@ -386,11 +386,6 @@
 
             if (!response.ok) {
                 throw new Error(data.message || `伺服器回應錯誤：${response.status}`);
-            }
-
-            if (isAi && !data.matched) {
-                result.textContent = `AI 找不到完全相符的說明書行程：${data.message}`;
-                return;
             }
 
             result.textContent = data.message;
