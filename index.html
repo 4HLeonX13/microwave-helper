@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微波料理助手</title>
-    <link rel="stylesheet" href="style.css?v=history-1">
+    <link rel="stylesheet" href="style.css?v=ai-1">
 </head>
 <body>
     <h1>微波料理助手</h1>
@@ -14,6 +14,7 @@
     <select id="guide-mode">
         <option value="recipe">查詢說明書料理</option>
         <option value="manual">依包裝設定手動微波</option>
+        <option value="ai">AI 自然語言查詢（外部 API）</option>
     </select>
 
     <section id="recipe-fields">
@@ -100,6 +101,14 @@
     </fieldset>
     </section>
 
+    <section id="ai-fields" hidden>
+        <p>輸入食物與份量，AI 會從已核對的 33 個說明書行程中尋找完全相符的項目。</p>
+        <label for="ai-query">料理描述</label>
+        <textarea id="ai-query" rows="4" maxlength="500" placeholder="例如：我要加熱 300g 冷凍薯條"></textarea>
+        <p id="ai-status" class="source" role="status">正在檢查外部 API 設定……</p>
+        <p>送出時，這段料理描述會傳到設定的外部 API。AI 不會自行決定功率或時間；最後的面板設定仍取自本機說明書資料。</p>
+    </section>
+
     <button type="button" id="generate-button">取得操作步驟</button>
 
     <h2>操作步驟</h2>
@@ -122,6 +131,8 @@
 
 <script>
     const modeInput = document.getElementById("guide-mode");
+    const aiQueryInput = document.getElementById("ai-query");
+    const aiStatus = document.getElementById("ai-status");
     const recipeSearch = document.getElementById("recipe-search");
     const recipeSelect = document.getElementById("recipe-select");
     const portionSelect = document.getElementById("recipe-portion");
@@ -150,7 +161,12 @@
         saveHistoryButton.hidden = true;
         saveStatus.textContent = "";
         stepsList.replaceChildren();
-        result.textContent = modeInput.value === "recipe" ? "請選擇料理與份量，再取得操作步驟。" : "請依包裝填寫設定。";
+        const messages = {
+            recipe: "請選擇料理與份量，再取得操作步驟。",
+            manual: "請依包裝填寫設定。",
+            ai: "請描述食物名稱、狀態與份量。"
+        };
+        result.textContent = messages[modeInput.value];
     }
 
     function showRecipe() {
@@ -200,12 +216,28 @@
     modeInput.addEventListener("change", () => {
         document.getElementById("recipe-fields").hidden = modeInput.value !== "recipe";
         document.getElementById("manual-fields").hidden = modeInput.value !== "manual";
+        document.getElementById("ai-fields").hidden = modeInput.value !== "ai";
         clearResult();
     });
     recipeSearch.addEventListener("input", filterRecipes);
     recipeSelect.addEventListener("change", updatePortions);
     portionSelect.addEventListener("change", showRecipe);
     document.getElementById("manual-fields").addEventListener("input", clearResult);
+    document.getElementById("ai-fields").addEventListener("input", clearResult);
+
+    async function loadAiStatus() {
+        try {
+            const response = await fetch("/api/ai-status");
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "無法讀取設定");
+            aiStatus.textContent = data.configured
+                ? `已設定：${data.model}｜${data.endpoint}`
+                : `尚未設定 API Key。請在伺服器端 .env 的 AI_API_KEY= 後填入金鑰。模型：${data.model}`;
+        } catch (error) {
+            aiStatus.textContent = `無法檢查外部 API 設定：${error.message}`;
+        }
+    }
+    loadAiStatus();
 
     async function loadRecipes() {
         try {
@@ -292,24 +324,31 @@
         stepsList.replaceChildren();
 
         const isRecipe = modeInput.value === "recipe";
+        const isManual = modeInput.value === "manual";
+        const isAi = modeInput.value === "ai";
         if (isRecipe && (!recipeSelect.value || !portionSelect.value)) {
             result.textContent = "請選擇有資料依據的料理與份量。";
             return;
         }
 
-        if (!isRecipe && foodName === "") {
+        if (isManual && foodName === "") {
             result.textContent = "請先輸入食物名稱。";
             return;
         }
 
-        if (!isRecipe && (!heatingMinutesInput.checkValidity() || !heatingSecondsInput.checkValidity())) {
+        if (isManual && (!heatingMinutesInput.checkValidity() || !heatingSecondsInput.checkValidity())) {
             result.textContent = "加熱時間請填整數：分鐘 0～95，秒數 0～59，兩欄皆不可留白。";
             return;
         }
 
         const totalSeconds = Number(heatingMinutesInput.value) * 60 + Number(heatingSecondsInput.value);
-        if (!isRecipe && (totalSeconds <= 0 || totalSeconds > 95 * 60)) {
+        if (isManual && (totalSeconds <= 0 || totalSeconds > 95 * 60)) {
             result.textContent = "加熱時間須大於 0，且不可超過 95 分鐘。";
+            return;
+        }
+
+        if (isAi && aiQueryInput.value.trim() === "") {
+            result.textContent = "請描述食物名稱、狀態與份量。";
             return;
         }
 
@@ -318,27 +357,40 @@
         const requestVersion = selectionVersion;
 
         try {
-              const params = new URLSearchParams(isRecipe ? {
-                mode: "recipe",
-                recipe: recipeSelect.value,
-                portion: portionSelect.value
-              } : {
-                mode: "manual",
-                food: foodName,
-                state: foodStateInput.value,
-                weight: foodWeightInput.value,
-                power: microwavePowerInput.value,
-                minutes: heatingMinutesInput.value,
-                seconds: heatingSecondsInput.value
-            });
-
-            const response = await fetch(`/api/steps?${params.toString()}`);
+            let response;
+            if (isAi) {
+                response = await fetch("/api/ai-guide", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({query: aiQueryInput.value.trim()})
+                });
+            } else {
+                const params = new URLSearchParams(isRecipe ? {
+                    mode: "recipe",
+                    recipe: recipeSelect.value,
+                    portion: portionSelect.value
+                } : {
+                    mode: "manual",
+                    food: foodName,
+                    state: foodStateInput.value,
+                    weight: foodWeightInput.value,
+                    power: microwavePowerInput.value,
+                    minutes: heatingMinutesInput.value,
+                    seconds: heatingSecondsInput.value
+                });
+                response = await fetch(`/api/steps?${params.toString()}`);
+            }
             const data = await response.json();
 
             if (requestVersion !== selectionVersion) return;
 
             if (!response.ok) {
                 throw new Error(data.message || `伺服器回應錯誤：${response.status}`);
+            }
+
+            if (isAi && !data.matched) {
+                result.textContent = `AI 找不到完全相符的說明書行程：${data.message}`;
+                return;
             }
 
             result.textContent = data.message;

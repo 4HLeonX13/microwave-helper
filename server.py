@@ -6,6 +6,7 @@ from threading import Lock
 from urllib.parse import urlparse, parse_qs
 from uuid import uuid4
 from recipes import RECIPES, recipe_steps
+from external_api import AiConfigurationError, ExternalAiError, get_ai_guide, public_ai_status
 
 class MicrowaveHandler(SimpleHTTPRequestHandler):
     history_file = Path(__file__).with_name("history.json")
@@ -42,22 +43,49 @@ class MicrowaveHandler(SimpleHTTPRequestHandler):
         )
         temporary_file.replace(self.history_file)
 
+    def read_json_body(self):
+        content_length = int(self.headers.get("Content-Length", "0"))
+        if not 0 < content_length <= 10000:
+            raise ValueError
+        body = json.loads(self.rfile.read(content_length).decode("utf-8"))
+        if not isinstance(body, dict):
+            raise ValueError
+        return body
+
     def do_POST(self):
         parsed_url = urlparse(self.path)
+
+        if parsed_url.path == "/api/ai-guide":
+            try:
+                body = self.read_json_body()
+                data = get_ai_guide(body.get("query"))
+            except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+                self.send_json(400, {"message": "請提供有效的料理描述（最多 500 個字）。"})
+                return
+            except AiConfigurationError as error:
+                self.send_json(503, {"message": str(error)})
+                return
+            except ExternalAiError as error:
+                self.send_json(502, {"message": str(error)})
+                return
+            self.send_json(200, data)
+            return
+
         if parsed_url.path != "/api/history":
             self.send_json(404, {"message": "找不到此 API。"})
             return
 
         try:
-            content_length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < content_length <= 10000:
-                raise ValueError
-            body = json.loads(self.rfile.read(content_length).decode("utf-8"))
+            body = self.read_json_body()
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
             self.send_json(400, {"message": "歷程資料格式不正確。"})
             return
 
-        allowed_modes = {"recipe": "說明書料理", "manual": "依包裝手動微波"}
+        allowed_modes = {
+            "recipe": "說明書料理",
+            "manual": "依包裝手動微波",
+            "ai": "AI 辨識說明書料理",
+        }
         if not isinstance(body, dict) or body.get("mode") not in allowed_modes:
             self.send_json(400, {"message": "歷程模式不正確。"})
             return
@@ -92,6 +120,10 @@ class MicrowaveHandler(SimpleHTTPRequestHandler):
 
         if parsed_url.path == "/api/recipes":
             self.send_json(200, {"recipes": RECIPES})
+            return
+
+        if parsed_url.path == "/api/ai-status":
+            self.send_json(200, public_ai_status())
             return
 
         if parsed_url.path == "/api/history":

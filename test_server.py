@@ -3,14 +3,32 @@ import socket
 import tempfile
 import threading
 import unittest
+from io import BytesIO
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from recipes import RECIPES
 from server import MicrowaveHandler
+from external_api import AiConfigurationError, ExternalAiError, get_ai_guide
+
+
+class JsonResponse(BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
+def ai_response(content):
+    encoded = json.dumps({
+        "choices": [{"message": {"content": json.dumps(content, ensure_ascii=False)}}]
+    }, ensure_ascii=False).encode("utf-8")
+    return JsonResponse(encoded)
 
 
 class QuietHandler(MicrowaveHandler):
@@ -143,6 +161,72 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(self.post("/api/history", data)[0], 400)
         self.assertEqual(self.post("/api/history", b"not-json", raw=True)[0], 400)
         self.assertEqual(self.post("/api/unknown", valid)[0], 404)
+
+    def test_ai_status_does_not_expose_api_key(self):
+        with patch("external_api.get_ai_config", return_value={
+            "endpoint": "https://example.test/v1",
+            "model": "nemotron-omni-30b",
+            "api_key": "very-secret",
+        }):
+            status, data = self.request("/api/ai-status")
+        self.assertEqual(status, 200)
+        self.assertTrue(data["configured"])
+        self.assertNotIn("api_key", data)
+        self.assertNotIn("very-secret", json.dumps(data))
+
+    def test_ai_endpoint_returns_only_locally_validated_recipe(self):
+        guide = {
+            "matched": True,
+            "message": "AI 辨識為：冷凍薯條／300g。已找到說明書行程。",
+            "steps": ["按面板「氣炸食譜」。"],
+            "history": {"mode": "ai", "food": "冷凍薯條", "detail": "300g",
+                        "program": "氣炸食譜 AF01", "settings": "22:00"},
+        }
+        with patch("server.get_ai_guide", return_value=guide) as mocked:
+            status, data = self.post("/api/ai-guide", {"query": "300g 冷凍薯條"})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["history"]["mode"], "ai")
+        mocked.assert_called_once_with("300g 冷凍薯條")
+
+    def test_ai_endpoint_reports_missing_key(self):
+        with patch("server.get_ai_guide", side_effect=AiConfigurationError("尚未設定 AI_API_KEY。")):
+            status, data = self.post("/api/ai-guide", {"query": "300g 冷凍薯條"})
+        self.assertEqual(status, 503)
+        self.assertIn("AI_API_KEY", data["message"])
+
+
+class ExternalAiClientTests(unittest.TestCase):
+    config = {
+        "endpoint": "https://example.test/v1",
+        "model": "nemotron-omni-30b",
+        "api_key": "test-key",
+    }
+
+    def test_model_choice_is_checked_against_manual_catalog(self):
+        captured = {}
+
+        def opener(request, timeout):
+            captured["url"] = request.full_url
+            captured["authorization"] = request.headers["Authorization"]
+            captured["body"] = json.loads(request.data)
+            return ai_response({"matched": True, "recipe_id": "AF01", "portion": "300g"})
+
+        with patch("external_api.get_ai_config", return_value=self.config):
+            data = get_ai_guide("我要加熱 300g 冷凍薯條", opener=opener)
+        self.assertEqual(captured["url"], "https://example.test/v1/chat/completions")
+        self.assertEqual(captured["authorization"], "Bearer test-key")
+        self.assertEqual(captured["body"]["model"], "nemotron-omni-30b")
+        self.assertEqual(data["history"]["food"], "冷凍薯條")
+        self.assertEqual(data["history"]["mode"], "ai")
+        self.assertEqual(data["selection"]["total_time"], "22:00")
+
+    def test_model_cannot_invent_recipe_or_portion(self):
+        def opener(_request, timeout):
+            return ai_response({"matched": True, "recipe_id": "invented", "portion": "999g"})
+
+        with patch("external_api.get_ai_config", return_value=self.config):
+            with self.assertRaises(ExternalAiError):
+                get_ai_guide("隨意料理", opener=opener)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ label {
     font-weight: bold;
 }
 
-input, select {
+input, select, textarea {
     box-sizing: border-box;
     width: 100%;
     padding: 12px;
@@ -40,6 +40,7 @@ button:hover {
 
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 button:focus-visible {
     outline: 3px solid #b05b00;
     outline-offset: 3px;
