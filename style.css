@@ -1,0 +1,125 @@
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background-color: #f5f7fa;
+    color: #243047;
+    line-height: 1.6;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+input, select {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #aab4c3;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+button {
+    margin-top: 16px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background-color: #245bcc;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #19449d;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+    outline: 3px solid #b05b00;
+    outline-offset: 3px;
+}
+
+#steps {
+    padding: 16px 16px 16px 40px;
+    background-color: white;
+    border-radius: 8px;
+}
+
+#steps:empty {
+    display: none;
+}
+
+#steps li + li {
+    margin-top: 10px;
+}
+
+section, fieldset { margin-top: 20px; }
+fieldset { border: 1px solid #aab4c3; border-radius: 8px; }
+section > div { margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d5dbe5; }
+#recipe-preview { padding: 16px; background: white; border-radius: 8px; }
+.source { font-size: 0.85rem; overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+button:disabled { opacity: 0.6; cursor: wait; }
+
+.secondary-button {
+    margin-top: 0;
+    background: #5b6575;
+}
+
+.section-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.section-heading h2,
+.section-heading p {
+    margin-top: 0;
+}
+
+#history-list {
+    display: grid;
+    gap: 14px;
+}
+
+.history-card {
+    padding: 16px;
+    background: white;
+    border-left: 5px solid #245bcc;
+    border-radius: 8px;
+}
+
+.history-card h3 {
+    margin: 0 0 10px;
+}
+
+.history-card dl {
+    display: grid;
+    grid-template-columns: 7em 1fr;
+    gap: 4px 12px;
+    margin: 0;
+}
+
+.history-card dt {
+    font-weight: bold;
+}
+
+.history-card dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+    .section-heading { display: block; }
+    .history-card dl { grid-template-columns: 1fr; }
+    .history-card dd { margin-bottom: 8px; }
+}

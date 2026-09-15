@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微波料理助手</title>
+    <link rel="stylesheet" href="style.css?v=history-1">
+</head>
+<body>
+    <h1>微波料理助手</h1>
+    <p>HMR-DA2713：依說明書查詢料理行程，取得與面板相符的按鍵操作。</p>
+
+    <label for="guide-mode">操作方式</label>
+    <select id="guide-mode">
+        <option value="recipe">查詢說明書料理</option>
+        <option value="manual">依包裝設定手動微波</option>
+    </select>
+
+    <section id="recipe-fields">
+        <p>已核對 33 個行程。選擇料理與原表份量，模式、火力和時間會自動帶出。</p>
+        <label for="recipe-search">搜尋料理</label>
+        <input type="search" id="recipe-search" placeholder="例如：薯條、菠菜、魚類">
+        <label for="recipe-select">料理／面板按鍵</label>
+        <select id="recipe-select" disabled><option value="">正在載入料理……</option></select>
+        <label for="recipe-portion">說明書份量</label>
+        <select id="recipe-portion" disabled></select>
+        <p id="recipe-hint" role="status"></p>
+        <p>選單表是機器行程資料，備料仍需依原食譜。未標明冷藏／冷凍的項目，不代表兩種狀態都適用；無對應條件時請改用包裝指示。</p>
+        <div id="recipe-preview" hidden>
+            <h2>行程設定</h2>
+            <p id="recipe-mode"></p>
+            <table>
+                <thead><tr><th>階段</th><th>火力／溫度</th><th>時間（分:秒）</th></tr></thead>
+                <tbody id="recipe-stages"></tbody>
+            </table>
+            <p id="recipe-total"></p>
+            <p id="recipe-note"></p>
+            <p id="recipe-source" class="source"></p>
+            <p>以下火力由自動行程控制，不需另外按「微波火力」「組合火力」或「烘烤/氣炸火力」。</p>
+        </div>
+    </section>
+
+    <section id="manual-fields" hidden>
+    <p>此模式將你提供的包裝設定轉為按鍵步驟，尚未替食物推算功率或時間。</p>
+
+    <div>
+        <label for="food-name">食物名稱</label>
+        <input
+            type="text"
+            id="food-name"
+            placeholder="例如：冷凍炒飯"
+        >
+    </div>
+
+    <div>
+    <label for="food-state">食物狀態</label>
+    <select id="food-state">
+        <option value="chilled">冷藏</option>
+        <option value="frozen">冷凍</option>
+    </select>
+    </div>
+
+    <div>
+    <label for="food-weight">重量（公克）</label>
+    <input
+        type="number"
+        id="food-weight"
+        min="1"
+        step="1"
+        placeholder="例如：600"
+    >
+    </div>
+
+        <div>
+        <label for="microwave-power">微波功率（依食物包裝選擇）</label>
+        <select id="microwave-power">
+            <option value="">請選擇功率</option>
+            <option value="P100">900W（P100）</option>
+            <option value="P90">810W（P90）</option>
+            <option value="P80">720W（P80）</option>
+            <option value="P70">630W（P70）</option>
+            <option value="P60">540W（P60）</option>
+            <option value="P50">450W（P50）</option>
+            <option value="P40">360W（P40）</option>
+            <option value="P30">270W（P30）</option>
+            <option value="P20">180W（P20）</option>
+            <option value="P10">90W（P10）</option>
+        </select>
+    </div>
+
+    <fieldset>
+        <legend>加熱時間（依食物包裝填寫）</legend>
+        <p id="time-hint">請填整數，總時間須大於 0，最多 95 分鐘；秒數為 0～59。</p>
+        <label for="heating-minutes">分鐘</label>
+        <input type="number" id="heating-minutes" min="0" max="95"
+               step="1" required placeholder="例如：3" aria-describedby="time-hint">
+        <label for="heating-seconds">秒</label>
+        <input type="number" id="heating-seconds" min="0" max="59"
+               step="1" required value="0" aria-describedby="time-hint">
+    </fieldset>
+    </section>
+
+    <button type="button" id="generate-button">取得操作步驟</button>
+
+    <h2>操作步驟</h2>
+    <p id="result" role="status">請先選擇料理與份量。</p>
+    <ol id="steps"></ol>
+    <button type="button" id="save-history-button" hidden>我已完成這次料理，加入歷程</button>
+    <p id="save-status" role="status"></p>
+
+    <section id="history-section">
+        <div class="section-heading">
+            <div>
+                <h2>料理歷程</h2>
+                <p>只記錄你按下「我已完成這次料理」的項目。</p>
+            </div>
+            <button type="button" id="refresh-history-button" class="secondary-button">重新整理</button>
+        </div>
+        <p id="history-status" role="status">正在載入歷程……</p>
+        <div id="history-list"></div>
+    </section>
+
+<script>
+    const modeInput = document.getElementById("guide-mode");
+    const recipeSearch = document.getElementById("recipe-search");
+    const recipeSelect = document.getElementById("recipe-select");
+    const portionSelect = document.getElementById("recipe-portion");
+    const recipeHint = document.getElementById("recipe-hint");
+    const preview = document.getElementById("recipe-preview");
+    let recipes = [];
+    let selectionVersion = 0;
+    let pendingHistory = null;
+    const foodInput = document.getElementById("food-name");
+    const foodStateInput = document.getElementById("food-state");
+    const foodWeightInput = document.getElementById("food-weight");
+    const microwavePowerInput = document.getElementById("microwave-power"); 
+    const heatingMinutesInput = document.getElementById("heating-minutes");
+    const heatingSecondsInput = document.getElementById("heating-seconds");
+    const generateButton = document.getElementById("generate-button");
+    const result = document.getElementById("result");
+    const stepsList = document.getElementById("steps");
+    const saveHistoryButton = document.getElementById("save-history-button");
+    const saveStatus = document.getElementById("save-status");
+    const historyStatus = document.getElementById("history-status");
+    const historyList = document.getElementById("history-list");
+
+    function clearResult() {
+        selectionVersion += 1;
+        pendingHistory = null;
+        saveHistoryButton.hidden = true;
+        saveStatus.textContent = "";
+        stepsList.replaceChildren();
+        result.textContent = modeInput.value === "recipe" ? "請選擇料理與份量，再取得操作步驟。" : "請依包裝填寫設定。";
+    }
+
+    function showRecipe() {
+        clearResult();
+        const recipe = recipes.find(item => item.id === recipeSelect.value);
+        const portion = recipe?.portions.find(item => item.value === portionSelect.value);
+        preview.hidden = !portion;
+        if (!portion) return;
+        document.getElementById("recipe-mode").textContent = `面板按鍵：${recipe.button}｜行程：${recipe.id}｜${recipe.name}／${portion.label}`;
+        const rows = portion.stages.map((stage, index) => {
+            const row = document.createElement("tr");
+            [String(index + 1), stage.setting, stage.time].forEach(text => {
+                const cell = document.createElement("td");
+                cell.textContent = text;
+                row.appendChild(cell);
+            });
+            return row;
+        });
+        document.getElementById("recipe-stages").replaceChildren(...rows);
+        document.getElementById("recipe-total").textContent = `原表總時間：${portion.total_time}（分:秒），階段由機器自動切換。`;
+        document.getElementById("recipe-note").textContent = recipe.note;
+        document.getElementById("recipe-source").textContent = `資料來源：${recipe.source}，第 ${recipe.page} 頁。微波檔位瓦數對照見第 13 頁。`;
+    }
+
+    function updatePortions() {
+        const recipe = recipes.find(item => item.id === recipeSelect.value);
+        portionSelect.replaceChildren();
+        portionSelect.disabled = !recipe;
+        for (const portion of recipe?.portions || []) {
+            portionSelect.add(new Option(portion.label, portion.value));
+        }
+        showRecipe();
+    }
+
+    function filterRecipes() {
+        const term = recipeSearch.value.trim().toLowerCase();
+        const matches = recipes.filter(item => `${item.name} ${item.id} ${item.button}`.toLowerCase().includes(term));
+        recipeSelect.replaceChildren(new Option("請選擇料理", ""));
+        for (const recipe of matches) {
+            recipeSelect.add(new Option(`${recipe.name}｜${recipe.button} ${recipe.id}`, recipe.id));
+        }
+        recipeSelect.disabled = matches.length === 0;
+        recipeHint.textContent = matches.length ? `找到 ${matches.length} 個行程。只提供原表份量，不按比例換算。` : "沒有已核對的料理資料（例如炒飯），請改用「依包裝設定手動微波」；程式不會猜測模式與時間。";
+        updatePortions();
+    }
+
+    modeInput.addEventListener("change", () => {
+        document.getElementById("recipe-fields").hidden = modeInput.value !== "recipe";
+        document.getElementById("manual-fields").hidden = modeInput.value !== "manual";
+        clearResult();
+    });
+    recipeSearch.addEventListener("input", filterRecipes);
+    recipeSelect.addEventListener("change", updatePortions);
+    portionSelect.addEventListener("change", showRecipe);
+    document.getElementById("manual-fields").addEventListener("input", clearResult);
+
+    async function loadRecipes() {
+        try {
+            const response = await fetch("/api/recipes");
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "料理清單載入失敗");
+            recipes = data.recipes;
+            filterRecipes();
+        } catch (error) {
+            recipeSelect.replaceChildren(new Option("無法載入料理清單", ""));
+            recipeHint.textContent = `無法載入料理清單：${error.message}。請確認 Python 伺服器執行中，再重新整理。`;
+        }
+    }
+    loadRecipes();
+
+    function addHistoryField(list, label, value) {
+        const term = document.createElement("dt");
+        term.textContent = label;
+        const description = document.createElement("dd");
+        description.textContent = value;
+        list.append(term, description);
+    }
+
+    function renderHistory(records) {
+        historyList.replaceChildren();
+        historyStatus.textContent = records.length ? `共 ${records.length} 筆，最近完成的排在最前面。` : "目前還沒有料理歷程。";
+        for (const record of records) {
+            const card = document.createElement("article");
+            card.className = "history-card";
+            const heading = document.createElement("h3");
+            heading.textContent = record.food;
+            const list = document.createElement("dl");
+            const completedAt = new Date(record.created_at);
+            addHistoryField(list, "完成時間", Number.isNaN(completedAt.valueOf()) ? record.created_at : completedAt.toLocaleString("zh-TW"));
+            addHistoryField(list, "方式", record.mode_label);
+            addHistoryField(list, "份量／狀態", record.detail);
+            addHistoryField(list, "行程", record.program);
+            addHistoryField(list, "設定", record.settings);
+            card.append(heading, list);
+            historyList.appendChild(card);
+        }
+    }
+
+    async function loadHistory() {
+        historyStatus.textContent = "正在載入歷程……";
+        try {
+            const response = await fetch("/api/history");
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "歷程載入失敗");
+            renderHistory(data.history);
+        } catch (error) {
+            historyStatus.textContent = `無法載入料理歷程：${error.message}`;
+        }
+    }
+
+    document.getElementById("refresh-history-button").addEventListener("click", loadHistory);
+    saveHistoryButton.addEventListener("click", async () => {
+        if (!pendingHistory) return;
+        saveHistoryButton.disabled = true;
+        saveStatus.textContent = "正在儲存歷程……";
+        try {
+            const response = await fetch("/api/history", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(pendingHistory)
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "歷程儲存失敗");
+            pendingHistory = null;
+            saveHistoryButton.hidden = true;
+            saveStatus.textContent = "已加入料理歷程。";
+            await loadHistory();
+        } catch (error) {
+            saveStatus.textContent = `加入歷程失敗：${error.message}`;
+        } finally {
+            saveHistoryButton.disabled = false;
+        }
+    });
+    loadHistory();
+
+    generateButton.addEventListener("click", async function () {
+        const foodName = foodInput.value.trim();
+
+        stepsList.replaceChildren();
+
+        const isRecipe = modeInput.value === "recipe";
+        if (isRecipe && (!recipeSelect.value || !portionSelect.value)) {
+            result.textContent = "請選擇有資料依據的料理與份量。";
+            return;
+        }
+
+        if (!isRecipe && foodName === "") {
+            result.textContent = "請先輸入食物名稱。";
+            return;
+        }
+
+        if (!isRecipe && (!heatingMinutesInput.checkValidity() || !heatingSecondsInput.checkValidity())) {
+            result.textContent = "加熱時間請填整數：分鐘 0～95，秒數 0～59，兩欄皆不可留白。";
+            return;
+        }
+
+        const totalSeconds = Number(heatingMinutesInput.value) * 60 + Number(heatingSecondsInput.value);
+        if (!isRecipe && (totalSeconds <= 0 || totalSeconds > 95 * 60)) {
+            result.textContent = "加熱時間須大於 0，且不可超過 95 分鐘。";
+            return;
+        }
+
+        result.textContent = "正在取得步驟……";
+        generateButton.disabled = true;
+        const requestVersion = selectionVersion;
+
+        try {
+              const params = new URLSearchParams(isRecipe ? {
+                mode: "recipe",
+                recipe: recipeSelect.value,
+                portion: portionSelect.value
+              } : {
+                mode: "manual",
+                food: foodName,
+                state: foodStateInput.value,
+                weight: foodWeightInput.value,
+                power: microwavePowerInput.value,
+                minutes: heatingMinutesInput.value,
+                seconds: heatingSecondsInput.value
+            });
+
+            const response = await fetch(`/api/steps?${params.toString()}`);
+            const data = await response.json();
+
+            if (requestVersion !== selectionVersion) return;
+
+            if (!response.ok) {
+                throw new Error(data.message || `伺服器回應錯誤：${response.status}`);
+            }
+
+            result.textContent = data.message;
+            pendingHistory = data.history;
+            saveHistoryButton.hidden = false;
+            saveStatus.textContent = "完成實際微波後，再按下方按鈕記錄。";
+
+            data.steps.forEach(function (step) {
+                const listItem = document.createElement("li");
+                listItem.textContent = step;
+                stepsList.appendChild(listItem);
+            });
+        } catch (error) {
+            if (requestVersion === selectionVersion) {
+                result.textContent = `取得步驟失敗：${error.message}`;
+            }
+            console.error(error);
+        } finally {
+            generateButton.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>
