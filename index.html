@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微波料理助手</title>
-    <link rel="stylesheet" href="style.css?v=ai-1">
+    <link rel="stylesheet" href="style.css?v=panel-1">
 </head>
 <body>
     <h1>微波料理助手</h1>
@@ -113,7 +113,27 @@
 
     <h2>操作步驟</h2>
     <p id="result" role="status">請先選擇料理與份量。</p>
-    <ol id="steps"></ol>
+    <div class="guide-layout">
+        <div class="step-column">
+            <ol id="steps"></ol>
+        </div>
+        <section id="panel-demo" aria-labelledby="panel-demo-heading" hidden>
+            <h3 id="panel-demo-heading">面板操作演示</h3>
+            <p class="source">紅點只模擬按鍵位置與順序，不代表實際按鍵次數或加熱倒數。</p>
+            <div class="panel-image-wrap">
+                <img src="assets/hmr-da2713-panel.png?v=2" width="465" height="964"
+                     alt="HMR-DA2713 微波爐控制面板，包含微波火力、加減與開始按鍵">
+                <span id="panel-dot" class="panel-dot" hidden aria-label="模擬按鍵紅點"></span>
+            </div>
+            <p id="panel-step-counter" class="panel-step-counter"></p>
+            <p id="panel-step-caption" class="panel-step-caption" aria-live="polite"></p>
+            <div class="panel-demo-controls">
+                <button type="button" id="panel-previous" class="secondary-button">上一步</button>
+                <button type="button" id="panel-play" class="secondary-button">播放演示</button>
+                <button type="button" id="panel-next" class="secondary-button">下一步</button>
+            </div>
+        </section>
+    </div>
     <button type="button" id="save-history-button" hidden>我已完成這次料理，加入歷程</button>
     <p id="save-status" role="status"></p>
 
@@ -129,6 +149,7 @@
         <div id="history-list"></div>
     </section>
 
+<script src="panel_demo.js?v=1"></script>
 <script>
     const modeInput = document.getElementById("guide-mode");
     const aiQueryInput = document.getElementById("ai-query");
@@ -150,6 +171,16 @@
     const generateButton = document.getElementById("generate-button");
     const result = document.getElementById("result");
     const stepsList = document.getElementById("steps");
+    const panelDemo = PanelDemo.createDemo({
+        section: document.getElementById("panel-demo"),
+        dot: document.getElementById("panel-dot"),
+        caption: document.getElementById("panel-step-caption"),
+        counter: document.getElementById("panel-step-counter"),
+        playButton: document.getElementById("panel-play"),
+        previousButton: document.getElementById("panel-previous"),
+        nextButton: document.getElementById("panel-next"),
+        stepsList
+    });
     const saveHistoryButton = document.getElementById("save-history-button");
     const saveStatus = document.getElementById("save-status");
     const historyStatus = document.getElementById("history-status");
@@ -161,6 +192,7 @@
         saveHistoryButton.hidden = true;
         saveStatus.textContent = "";
         stepsList.replaceChildren();
+        panelDemo.reset();
         const messages = {
             recipe: "請選擇料理與份量，再取得操作步驟。",
             manual: "請依包裝填寫設定。",
@@ -322,6 +354,7 @@
         const foodName = foodInput.value.trim();
 
         stepsList.replaceChildren();
+        panelDemo.reset();
 
         const isRecipe = modeInput.value === "recipe";
         const isManual = modeInput.value === "manual";
@@ -398,6 +431,7 @@
                 listItem.textContent = step;
                 stepsList.appendChild(listItem);
             });
+            panelDemo.load(data.steps);
         } catch (error) {
             if (requestVersion === selectionVersion) {
                 result.textContent = `取得步驟失敗：${error.message}`;

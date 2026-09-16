@@ -1,6 +1,6 @@
 body {
     font-family: system-ui, sans-serif;
-    max-width: 640px;
+    max-width: 920px;
     margin: 40px auto;
     padding: 0 20px;
     background-color: #f5f7fa;
@@ -59,6 +59,55 @@ button:focus-visible {
 #steps li + li {
     margin-top: 10px;
 }
+
+.guide-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+    align-items: start;
+    gap: 22px;
+}
+
+.step-column { min-width: 0; }
+.demo-current {
+    background: #fff2d4;
+    border-radius: 5px;
+    outline: 2px solid #d18c00;
+}
+
+#panel-demo {
+    margin-top: 0;
+    padding: 14px;
+    background: #fff;
+    border-radius: 10px;
+}
+
+#panel-demo h3 { margin: 0 0 6px; }
+#panel-demo > p.source { margin: 0 0 10px; }
+.panel-image-wrap { position: relative; width: 100%; max-width: 300px; }
+.panel-image-wrap img { display: block; width: 100%; height: auto; }
+.panel-dot {
+    position: absolute;
+    width: 19px;
+    height: 19px;
+    transform: translate(-50%, -50%);
+    border: 2px solid white;
+    border-radius: 50%;
+    background: #e31638;
+    box-shadow: 0 0 0 5px rgba(227, 22, 56, 0.24);
+    transition: left 0.45s ease, top 0.45s ease;
+    pointer-events: none;
+    animation: panel-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes panel-pulse {
+    from { box-shadow: 0 0 0 3px rgba(227, 22, 56, 0.25); }
+    to { box-shadow: 0 0 0 9px rgba(227, 22, 56, 0.08); }
+}
+
+.panel-step-counter { font-weight: bold; margin-bottom: 4px; }
+.panel-step-caption { margin-top: 0; }
+.panel-demo-controls { display: flex; flex-wrap: wrap; gap: 6px; }
+.panel-demo-controls button { margin-top: 0; padding: 8px 10px; font-size: 0.85rem; }
 
 section, fieldset { margin-top: 20px; }
 fieldset { border: 1px solid #aab4c3; border-radius: 8px; }
@@ -120,7 +169,13 @@ button:disabled { opacity: 0.6; cursor: wait; }
 }
 
 @media (max-width: 520px) {
+    .guide-layout { grid-template-columns: 1fr; }
+    #panel-demo { max-width: 345px; }
     .section-heading { display: block; }
     .history-card dl { grid-template-columns: 1fr; }
     .history-card dd { margin-bottom: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .panel-dot { animation: none; transition: none; }
 }
