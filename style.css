@@ -1,55 +1,91 @@
-body {
-    font-family: system-ui, sans-serif;
-    max-width: 920px;
-    margin: 40px auto;
-    padding: 0 20px;
-    background-color: #e9ecd5;
-    color: #243047;
-    line-height: 1.6;
+:root {
+    color-scheme: light;
+    --page: #f5f0e8;
+    --surface: #fffdfa;
+    --surface-soft: #faf5ed;
+    --line: #ded3c3;
+    --text: #342e27;
+    --muted: #6e6255;
+    --accent: #826044;
+    --accent-hover: #694b34;
 }
+
+body {
+    box-sizing: border-box;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+    background: var(--page);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Microsoft JhengHei", sans-serif;
+    line-height: 1.65;
+}
+
+body > h1 { margin: 0 0 4px; font-size: clamp(1.9rem, 4vw, 2.5rem); letter-spacing: 0.04em; }
+body > p:first-of-type { margin: 0 0 30px; color: var(--muted); }
+body > h2 { margin: 32px 0 12px; }
+h2, h3 { line-height: 1.35; }
+p { overflow-wrap: anywhere; }
 
 label {
     display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
+    margin: 0 0 7px;
+    font-weight: 600;
 }
+
+body > label { margin-top: 20px; }
 
 input, select, textarea {
     box-sizing: border-box;
     width: 100%;
-    padding: 12px;
-    border: 1px solid #aab4c3;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #cbbda9;
     border-radius: 8px;
-    font-size: 16px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.96rem;
 }
 
+textarea { resize: vertical; }
+input:disabled, select:disabled { background: #f2ede5; }
+
 button {
-    margin-top: 16px;
-    padding: 12px 20px;
-    border: none;
+    min-height: 38px;
+    margin-top: 14px;
+    padding: 8px 14px;
+    border: 1px solid var(--accent);
     border-radius: 8px;
-    background-color: #245bcc;
-    color: white;
-    font-size: 16px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 button:hover {
-    background-color: #19449d;
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
 }
 
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
-    outline: 3px solid #b05b00;
-    outline-offset: 3px;
+    outline: 3px solid #a86e2f;
+    outline-offset: 2px;
 }
 
 #steps {
-    padding: 16px 16px 16px 40px;
-    background-color: white;
-    border-radius: 8px;
+    margin: 0;
+    padding: 18px 20px 18px 44px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
 }
 
 #steps:empty {
@@ -63,26 +99,42 @@ button:focus-visible {
 .guide-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+    grid-template-areas:
+        "steps panel"
+        "details panel";
+    grid-template-rows: auto 1fr;
     align-items: start;
-    gap: 22px;
+    gap: 18px;
 }
 
-.step-column { min-width: 0; }
+.step-column { grid-area: steps; min-width: 0; }
 .demo-current {
-    background: #fff2d4;
-    border-radius: 5px;
-    outline: 2px solid #d18c00;
+    background: #f7e8cd;
+    border-radius: 4px;
+    outline: 2px solid #b78347;
 }
 
 #panel-demo {
+    grid-area: panel;
     margin-top: 0;
-    padding: 14px;
-    background: #fff;
-    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
 }
 
 #panel-demo h3 { margin: 0 0 6px; }
-#panel-demo > p.source { margin: 0 0 10px; }
+#panel-step-details {
+    grid-area: details;
+    align-self: start;
+    min-width: 0;
+    margin-top: 0;
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+#panel-step-details > p.source { margin: 12px 0 0; color: var(--muted); }
 .panel-image-wrap { position: relative; width: 100%; max-width: 300px; }
 .panel-image-wrap img { display: block; width: 100%; height: auto; }
 .panel-dot {
@@ -104,25 +156,45 @@ button:focus-visible {
     to { box-shadow: 0 0 0 9px rgba(227, 22, 56, 0.08); }
 }
 
-.panel-step-counter { font-weight: bold; margin-bottom: 4px; }
-.panel-step-caption { margin-top: 0; }
-.panel-demo-controls { display: flex; flex-wrap: wrap; gap: 6px; }
-.panel-demo-controls button { margin-top: 0; padding: 8px 10px; font-size: 0.85rem; }
+.panel-step-counter { margin: 0 0 4px; font-weight: 600; }
+.panel-step-caption { margin: 0; }
+.panel-demo-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.panel-demo-controls button { min-height: 36px; margin-top: 0; padding: 7px 10px; font-size: 0.82rem; }
 
-section, fieldset { margin-top: 20px; }
-fieldset { border: 1px solid #aab4c3; border-radius: 8px; }
-section > div { margin-bottom: 16px; }
+section { margin-top: 22px; }
+#recipe-fields, #manual-fields, #ai-fields, #history-section {
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 3px 18px rgba(72, 49, 25, 0.04);
+}
+#recipe-fields > p:first-child,
+#manual-fields > p:first-child,
+#ai-fields > p:first-child { margin-top: 0; color: var(--muted); }
+#recipe-fields label:not(:first-of-type) { margin-top: 16px; }
+#manual-fields > div { margin: 0 0 16px; }
+fieldset { margin: 18px 0 0; padding: 14px 16px 18px; border: 1px solid var(--line); border-radius: 10px; }
+fieldset legend { padding: 0 6px; font-weight: 600; }
+fieldset p { margin: 0 0 12px; color: var(--muted); }
+fieldset label:not(:first-of-type) { margin-top: 14px; }
 table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 10px; border-bottom: 1px solid #d5dbe5; }
-#recipe-preview { padding: 16px; background: white; border-radius: 8px; }
+th, td { text-align: left; padding: 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+#recipe-preview { margin-top: 20px; padding: 16px; overflow-x: auto; border: 1px solid var(--line); background: var(--surface-soft); border-radius: 10px; }
+#recipe-preview h2 { margin-top: 0; font-size: 1.2rem; }
+#result { margin: 0 0 12px; color: var(--muted); }
 .source { font-size: 0.85rem; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
-button:disabled { opacity: 0.6; cursor: wait; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .secondary-button {
     margin-top: 0;
-    background: #5b6575;
+    border-color: var(--line);
+    background: var(--surface-soft);
+    color: var(--text);
 }
+.secondary-button:hover { border-color: #b8a28b; background: #efe4d5; }
 
 .section-heading {
     display: flex;
@@ -135,17 +207,20 @@ button:disabled { opacity: 0.6; cursor: wait; }
 .section-heading p {
     margin-top: 0;
 }
+.section-heading h2 { margin-bottom: 4px; }
+.section-heading p { margin-bottom: 18px; color: var(--muted); }
 
 #history-list {
     display: grid;
-    gap: 14px;
+    gap: 12px;
 }
 
 .history-card {
-    padding: 16px;
-    background: white;
-    border-left: 5px solid #245bcc;
-    border-radius: 8px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 10px;
+    background: var(--surface-soft);
 }
 
 .history-card h3 {
@@ -160,7 +235,7 @@ button:disabled { opacity: 0.6; cursor: wait; }
 }
 
 .history-card dt {
-    font-weight: bold;
+    font-weight: 600;
 }
 
 .history-card dd {
@@ -168,14 +243,25 @@ button:disabled { opacity: 0.6; cursor: wait; }
     overflow-wrap: anywhere;
 }
 
-@media (max-width: 520px) {
-    .guide-layout { grid-template-columns: 1fr; }
+@media (max-width: 720px) {
+    body { padding: 24px 16px 48px; }
+    .guide-layout {
+        grid-template-columns: 1fr;
+        grid-template-areas: "steps" "panel" "details";
+        grid-template-rows: auto;
+    }
     #panel-demo { max-width: 345px; }
+    #recipe-fields, #manual-fields, #ai-fields, #history-section { padding: 18px; }
+}
+
+@media (max-width: 520px) {
     .section-heading { display: block; }
+    .section-heading .secondary-button { margin-bottom: 10px; }
     .history-card dl { grid-template-columns: 1fr; }
     .history-card dd { margin-bottom: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .panel-dot { animation: none; transition: none; }
+    button { transition: none; }
 }

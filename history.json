@@ -1,5 +1,25 @@
 [
   {
+    "id": "7c473eeabf2e4e6aa200484709c2b5b2",
+    "created_at": "2026-09-17T18:22:26+08:00",
+    "mode": "recipe",
+    "mode_label": "說明書料理",
+    "food": "冷凍烤寬麵條",
+    "detail": "300g",
+    "program": "日常食譜 dd08",
+    "settings": "組合火力 C-1／15:00"
+  },
+  {
+    "id": "4f5756330b094e43b08e408e3f2ca5dd",
+    "created_at": "2026-09-17T18:21:21+08:00",
+    "mode": "recipe",
+    "mode_label": "說明書料理",
+    "food": "烤大蒜麵包",
+    "detail": "200g",
+    "program": "日常食譜 dd12",
+    "settings": "組合火力 C-4／09:00"
+  },
+  {
     "id": "b676343d837b4c56905a836b4ed7d16b",
     "created_at": "2026-09-17T13:53:55+08:00",
     "mode": "ai",

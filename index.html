@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微波料理助手</title>
-    <link rel="stylesheet" href="style.css?v=panel-1">
+    <link rel="stylesheet" href="style.css?v=wood-2">
 </head>
 <body>
-    <h1>微波料理助手</h1>
-    <p>HMR-DA2713：依說明書查詢料理行程，取得與面板相符的按鍵操作。</p>
+    <h1>HMR-DA2713 微波料理助手</h1>
 
     <label for="guide-mode">操作方式</label>
     <select id="guide-mode">
@@ -18,7 +17,6 @@
     </select>
 
     <section id="recipe-fields">
-        <p>已核對 33 個行程。選擇料理與原表份量，模式、火力和時間會自動帶出。</p>
         <label for="recipe-search">搜尋料理</label>
         <input type="search" id="recipe-search" placeholder="例如：薯條、菠菜、魚類">
         <label for="recipe-select">料理／面板按鍵</label>
@@ -119,14 +117,16 @@
         </div>
         <section id="panel-demo" aria-labelledby="panel-demo-heading" hidden>
             <h3 id="panel-demo-heading">面板操作演示</h3>
-            <p class="source">紅點只模擬按鍵位置與順序，不代表實際按鍵次數或加熱倒數。</p>
             <div class="panel-image-wrap">
                 <img src="assets/hmr-da2713-panel.png?v=2" width="465" height="964"
                      alt="HMR-DA2713 微波爐控制面板，包含微波火力、加減與開始按鍵">
                 <span id="panel-dot" class="panel-dot" hidden aria-label="模擬按鍵紅點"></span>
             </div>
+        </section>
+        <section id="panel-step-details" aria-label="目前演示步驟" hidden>
             <p id="panel-step-counter" class="panel-step-counter"></p>
             <p id="panel-step-caption" class="panel-step-caption" aria-live="polite"></p>
+            <p class="source">紅點只模擬按鍵位置與順序，不代表實際按鍵次數或加熱倒數。</p>
             <div class="panel-demo-controls">
                 <button type="button" id="panel-previous" class="secondary-button">上一步</button>
                 <button type="button" id="panel-play" class="secondary-button">播放演示</button>
@@ -173,6 +173,7 @@
     const stepsList = document.getElementById("steps");
     const panelDemo = PanelDemo.createDemo({
         section: document.getElementById("panel-demo"),
+        details: document.getElementById("panel-step-details"),
         dot: document.getElementById("panel-dot"),
         caption: document.getElementById("panel-step-caption"),
         counter: document.getElementById("panel-step-counter"),

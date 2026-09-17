@@ -42,7 +42,7 @@
         return null;
     }
 
-    function createDemo({ section, dot, caption, counter, playButton, previousButton,
+    function createDemo({ section, details, dot, caption, counter, playButton, previousButton,
                           nextButton, stepsList }) {
         let steps = [];
         let index = 0;
@@ -107,6 +107,7 @@
                 stopTimer();
                 steps = [];
                 section.hidden = true;
+                details.hidden = true;
                 dot.hidden = true;
                 Array.from(stepsList.children).forEach(item => item.classList.remove("demo-current"));
             },
@@ -114,6 +115,7 @@
                 stopTimer();
                 steps = newSteps.filter(step => typeof step === "string");
                 section.hidden = steps.length === 0;
+                details.hidden = steps.length === 0;
                 if (!steps.length) return;
                 const firstPress = steps.findIndex(step => buttonForStep(step));
                 showStep(firstPress >= 0 ? firstPress : 0);
