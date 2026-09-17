@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>微波料理助手</title>
-    <link rel="stylesheet" href="style.css?v=wood-2">
+    <link rel="stylesheet" href="style.css?v=wood-3">
 </head>
 <body>
     <h1>HMR-DA2713 微波料理助手</h1>
@@ -138,15 +138,17 @@
     <p id="save-status" role="status"></p>
 
     <section id="history-section">
-        <div class="section-heading">
-            <div>
-                <h2>料理歷程</h2>
-                <p>只記錄你按下「我已完成這次料理」的項目。</p>
+        <details id="history-disclosure">
+            <summary>料理歷程</summary>
+            <div class="history-content">
+                <div class="section-heading">
+                    <p>只記錄你按下「我已完成這次料理」的項目。</p>
+                    <button type="button" id="refresh-history-button" class="secondary-button">重新整理</button>
+                </div>
+                <p id="history-status" role="status">正在載入歷程……</p>
+                <div id="history-list"></div>
             </div>
-            <button type="button" id="refresh-history-button" class="secondary-button">重新整理</button>
-        </div>
-        <p id="history-status" role="status">正在載入歷程……</p>
-        <div id="history-list"></div>
+        </details>
     </section>
 
 <script src="panel_demo.js?v=1"></script>
@@ -186,6 +188,7 @@
     const saveStatus = document.getElementById("save-status");
     const historyStatus = document.getElementById("history-status");
     const historyList = document.getElementById("history-list");
+    const historyDisclosure = document.getElementById("history-disclosure");
 
     function clearResult() {
         selectionVersion += 1;
@@ -327,6 +330,9 @@
     }
 
     document.getElementById("refresh-history-button").addEventListener("click", loadHistory);
+    historyDisclosure.addEventListener("toggle", () => {
+        if (historyDisclosure.open) loadHistory();
+    });
     saveHistoryButton.addEventListener("click", async () => {
         if (!pendingHistory) return;
         saveHistoryButton.disabled = true;
@@ -342,15 +348,13 @@
             pendingHistory = null;
             saveHistoryButton.hidden = true;
             saveStatus.textContent = "已加入料理歷程。";
-            await loadHistory();
+            if (historyDisclosure.open) await loadHistory();
         } catch (error) {
             saveStatus.textContent = `加入歷程失敗：${error.message}`;
         } finally {
             saveHistoryButton.disabled = false;
         }
     });
-    loadHistory();
-
     generateButton.addEventListener("click", async function () {
         const foodName = foodInput.value.trim();
 
