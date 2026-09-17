@@ -94,6 +94,21 @@ class ApiTests(unittest.TestCase):
         with urlopen(self.base + "/", timeout=3) as response:
             self.assertEqual(response.headers["Cache-Control"], "no-store")
 
+    def test_only_public_static_files_are_available(self):
+        for path in ("/", "/index.html", "/style.css", "/panel_demo.js",
+                     "/assets/hmr-da2713-panel.png"):
+            with self.subTest(public=path), urlopen(self.base + path, timeout=3) as response:
+                self.assertEqual(response.status, 200)
+
+        for path in ("/.env", "/history.json", "/.git/config", "/tmp/",
+                     "/%2eenv"):
+            for method in ("GET", "HEAD"):
+                with self.subTest(private=path, method=method):
+                    request = Request(self.base + path, method=method)
+                    with self.assertRaises(HTTPError) as blocked:
+                        urlopen(request, timeout=3)
+                    self.assertEqual(blocked.exception.code, 404)
+
     def test_frozen_fries_two_stages_and_panel_route(self):
         status, data = self.recipe("AF01", "300g", power="P10", minutes="1")
         self.assertEqual(status, 200)

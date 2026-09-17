@@ -1,6 +1,7 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 from threading import Lock
 from urllib.parse import urlparse, parse_qs
@@ -9,8 +10,22 @@ from recipes import RECIPES, recipe_steps
 from external_api import AiConfigurationError, ExternalAiError, get_ai_guide, public_ai_status
 
 class MicrowaveHandler(SimpleHTTPRequestHandler):
-    history_file = Path(__file__).with_name("history.json")
+    public_files = frozenset({
+        "/", "/index.html", "/style.css", "/panel_demo.js",
+        "/assets/hmr-da2713-panel.png",
+    })
+    history_file = Path(os.environ.get("HISTORY_FILE") or Path(__file__).with_name("history.json"))
     history_lock = Lock()
+
+    def __init__(self, *args, **kwargs):
+        # 靜態檔案固定從程式目錄讀取，且只開放 public_files 中的檔案。
+        super().__init__(*args, directory=str(Path(__file__).resolve().parent), **kwargs)
+
+    def do_HEAD(self):
+        if urlparse(self.path).path not in self.public_files:
+            self.send_error(404)
+            return
+        super().do_HEAD()
 
     def end_headers(self):
         # 開發時每次重新取得最新網頁與料理資料。
@@ -36,6 +51,7 @@ class MicrowaveHandler(SimpleHTTPRequestHandler):
             return []
 
     def save_history(self, records):
+        self.history_file.parent.mkdir(parents=True, exist_ok=True)
         temporary_file = self.history_file.with_suffix(".json.tmp")
         temporary_file.write_text(
             json.dumps(records, ensure_ascii=False, indent=2),
@@ -236,11 +252,16 @@ class MicrowaveHandler(SimpleHTTPRequestHandler):
 
             self.send_json(200, data)
         else:
-            # 其他網址繼續提供 HTML、CSS 等檔案
+            # 不讓瀏覽器讀取 .env、歷程、Git 或其他非公開檔案。
+            if parsed_url.path not in self.public_files:
+                self.send_error(404)
+                return
             super().do_GET()
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", 8000), MicrowaveHandler)
-    print("伺服器已啟動：http://127.0.0.1:8000")
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    server = ThreadingHTTPServer((host, port), MicrowaveHandler)
+    print(f"伺服器已啟動：http://{host}:{port}")
     server.serve_forever()

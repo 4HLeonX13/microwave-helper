@@ -1,0 +1,10 @@
+.git/
+.env
+.env.*
+history.json
+data/
+dist/
+tmp/
+docs/
+__pycache__/
+*.py[cod]

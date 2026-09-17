@@ -1,0 +1,14 @@
+services:
+  microwave-helper:
+    build: .
+    ports:
+      - "127.0.0.1:${MICROWAVE_HOST_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8000"
+      HISTORY_FILE: /data/history.json
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
